@@ -1,6 +1,7 @@
 package com.scaler.bookmyshow.services;
 
 import com.scaler.bookmyshow.Models.*;
+import com.scaler.bookmyshow.repositories.BookingRepository;
 import com.scaler.bookmyshow.repositories.ShowRepository;
 import com.scaler.bookmyshow.repositories.ShowSeatRepository;
 import com.scaler.bookmyshow.repositories.UserRepository;
@@ -21,12 +22,18 @@ public class BookingService {
     private UserRepository userRepository;
     private ShowRepository showRepository;
     private ShowSeatRepository showSeatRepository;
+    private BookingRepository bookingRepository;
+    private PriceCalculator priceCalculator;
 
     @Autowired
-    BookingService(UserRepository userRepository, ShowRepository showRepository, ShowSeatRepository showSeatRepository) {
+    BookingService(UserRepository userRepository, ShowRepository showRepository,
+                   ShowSeatRepository showSeatRepository, BookingRepository bookingRepository,
+                   PriceCalculator priceCalculator) {
         this.userRepository = userRepository;
         this.showRepository = showRepository;
         this.showSeatRepository = showSeatRepository;
+        this.bookingRepository = bookingRepository;
+        this.priceCalculator = priceCalculator;
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -58,8 +65,20 @@ public class BookingService {
         List<ShowSeat> savedShowSeats = new ArrayList<>();
         for(ShowSeat showSeat : showSeats){
             showSeat.setShowSeatStatus(ShowSeatStatus.BLOCKED);
+            showSeat.setLockedAt(new Date());
             savedShowSeats.add(showSeatRepository.save(showSeat));
         }
-         return null;
+
+        Booking booking = new Booking();
+        booking.setBookingStatus(BookingStatus.PENDING);
+        booking.setShowSeats(savedShowSeats);
+        booking.setUser(BookedBy);
+        booking.setBookedAt(new Date());
+        booking.setShow(bookedShow);
+        booking.setAmount(priceCalculator.calculatePrice(savedShowSeats, bookedShow));
+        booking.setPayments(new ArrayList<>());
+        booking = bookingRepository.save(booking);
+
+         return booking;
     }
 }
